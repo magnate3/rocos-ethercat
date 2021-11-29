@@ -1,0 +1,20 @@
+#!/bin/bash
+
+echo "============EtherCAT Master for Robot=============="
+echo "===@Author: Yang Luo                            ==="
+echo "===@Create: 2021.07.17 00:05                    ==="
+echo "===@Ver: 0.1                                    ==="
+echo "==================================================="
+
+INSTANCE=$(lspci -mm | grep -i 'Ethernet controller' | sed -n '$p' | cut -d ' ' -f 1 | awk '$1=$1')
+
+if [ $# -lt 1 ]; then
+  echo "The eni.xml will be used as default."
+  ENI_FILE=eni.xml
+else
+  echo "The $1 is used as eni file."
+  ENI_FILE="$1"
+fi
+
+# Start EcMaster
+nice -20 ./@PROJECT_NAME@_node -f $ENI_FILE -i8254x $INSTANCE 1 -v 3 -perf -t 0
