@@ -16,6 +16,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 find_package(Boost REQUIRED COMPONENTS date_time filesystem)
 find_package(yaml-cpp REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Protobuf REQUIRED)
 
 
 ###########
@@ -43,6 +44,15 @@ file(GLOB_RECURSE CONFIG_FILE config/*.yaml)
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/rocos_ethercat.cpp
 # )
+set(Protobuf_IMPORT_DIRS ${Protobuf_IMPORT_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/protos)
+
+file(GLOB PROTO_FILES protos/*.proto)
+foreach(FIL ${PROTO_FILES})
+    protobuf_generate_cpp(PROTO_SRC PROTO_HDR ${FIL})
+    list(APPEND PROTO_SRCS ${PROTO_SRC})
+    list(APPEND PROTO_HDRS ${PROTO_HDRS})
+endforeach()
+
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -53,7 +63,7 @@ file(GLOB_RECURSE CONFIG_FILE config/*.yaml)
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/rocos_ethercat_node.cpp)
-add_executable(${PROJECT_NAME} ${SRCS})
+add_executable(${PROJECT_NAME} ${SRCS} ${PROTO_SRCS} ${PROTO_HDRS})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -67,16 +77,17 @@ add_executable(${PROJECT_NAME} ${SRCS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}
-  AtemRasSrv 
-  EcMaster
-  emllI8254x  
-  dl 
-  rt 
-  Threads::Threads 
-  Boost::boost
-  Boost::date_time
-  Boost::filesystem
-  yaml-cpp
+        AtemRasSrv
+        EcMaster
+        emllI8254x
+        dl
+        rt
+        Threads::Threads
+        Boost::boost
+        Boost::date_time
+        Boost::filesystem
+        yaml-cpp
+        protobuf::libprotobuf
 )
 
 add_subdirectory(lib/LinkOsLayer/atemsys)

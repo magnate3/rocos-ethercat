@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package rocos.ecm;
+
+import "slave_info.proto";
+import "google/protobuf/timestamp.proto";
+
+message EcmData {
+  repeated SlaveInfo slaves = 1;
+}

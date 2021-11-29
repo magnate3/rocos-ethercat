@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package rocos.ecm;
+
+message Outputs {
+  int32  mode_of_operation = 1;
+  uint32 control_word = 2;
+  sint32 target_position = 3;
+  sint32 target_velocity = 4;
+  sint32 target_torque = 5;
+}

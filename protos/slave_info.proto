@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package rocos.ecm;
+
+import "inputs.proto";
+import "outputs.proto";
+
+//enum ModeOfOperation {
+//  NOT_SUPPORTED = 0;
+//  PP = 1;  // Profile position mode
+//  PV = 3;  // Profiled velocity mode
+//  PT = 4;  // Torque profiled mode
+//  CSP = 8; // Cyclic synchronous position
+//  CSV = 9; // Cyclic synchronous velocity
+//  CST = 10;// Cyclic synchronous torque
+//}
+
+message SlaveInfo {
+  string slave_name = 1;
+  Inputs inputs = 2;
+  Outputs outputs = 3;
+
+}
