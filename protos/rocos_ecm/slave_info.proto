@@ -1,0 +1,13 @@
+syntax = "proto3";
+//import
+
+message SlaveInfo {
+  enum ModeOfOperation {
+    UNKNOWN = 0;
+    CSP = 8;
+    CSV = 9;
+    CST = 10;
+  }
+  string slave_name = 1;
+  ModeOfOperation mode_of_operation = 2;
+}
