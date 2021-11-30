@@ -1,0 +1,21 @@
+robot:
+  name: 'sia_robot' # [required] less than ROBOT_NAME_MAXLEN(20 bytes)
+  loop_hz: 1000     # [required] control frequency
+  slave_number: 1 # [required]
+  slaves:
+    - id: 0 # The order of joints [required]
+      name: joint_1
+      inputs: # [optional]
+        - 'Status word'
+        - 'Position actual value'
+        - 'Velocity actual value'
+        - 'Torque actual value'
+        - 'Analog Input 1'
+      outputs: # [optional]
+        - 'Mode of operation'
+        - 'Control word'
+        - 'Target Position'
+        - 'Target Velocity'
+        - 'Target Torque'
+
+

@@ -6,5 +6,7 @@ import "slave_info.proto";
 import "google/protobuf/timestamp.proto";
 
 message EcmData {
-  repeated SlaveInfo slaves = 1;
+  google.protobuf.Timestamp timestamp = 1; // Timestamp of the PDO
+  fixed32 slave_num = 2;                   // Number of the slaves
+  repeated SlaveInfo slaves = 3;           // Slaves' PDO
 }
