@@ -125,13 +125,13 @@ typedef struct _T_ROBOT_EC_OUTPUT
     T_JOINT_EC_OUTPUT j[MAX_JOINT_NUM];
 } T_ROBOT_EC_OUTPUT;
 
-/** Class JointConfig contains all configurations of one joint
+/** Class SlaveConfig contains all configurations of one joint
  * 
  */
-class JointConfig
+class SlaveConfig
 {
 public:
-    JointConfig()
+    SlaveConfig()
     {
         // EtherCAT Process Data Input default Name Mapping
         ecInpMap[ec_status_word] = "Status word";
@@ -148,13 +148,13 @@ public:
         ecOutpMap[ec_target_torque] = "Target Torque";
     }
 
-    ~JointConfig()
+    ~SlaveConfig()
     {
-        munmap(jntEcInpPtr, sizeof(T_JOINT_EC_INPUT));
-        munmap(jntEcOutpPtr, sizeof(T_JOINT_EC_OUTPUT));
+//        munmap(jntEcInpPtr, sizeof(T_JOINT_EC_INPUT));
+//        munmap(jntEcOutpPtr, sizeof(T_JOINT_EC_OUTPUT));
     }
 
-    int jntID{0};
+    int id{0};
 
     std::string jntName;
 
@@ -171,7 +171,7 @@ public:
 
     double torque_range = 100; // range of the torque sensor
 
-    std::string ecSlaveName{"Slave_1001 [Elmo Drive ]"};
+    std::string name{"Slave_1001 [Elmo Drive ]"};
     std::map<Inputs, std::string> ecInpMap;
     std::map<Outputs, std::string> ecOutpMap;
 
@@ -210,8 +210,8 @@ public:
 
     int jntNum{6};
 
-    std::vector<JointConfig> jntCfg;
-    //    JointConfig jntCfg[MAX_JOINT_NUM];
+    std::vector<SlaveConfig> jntCfg;
+    //    SlaveConfig slaveCfg[MAX_JOINT_NUM];
 
     T_ROBOT_EC_INPUT *ecInpPtr{nullptr};
     T_ROBOT_EC_OUTPUT *ecOutpPtr{nullptr};
@@ -356,9 +356,9 @@ public:
                 jntCfg[id].torque_range = joints[i]["torque_range"].as<double>();
             }
 
-            /// joints[].ecSlaveName
-            jntCfg[id].ecSlaveName = joints[i]["ec_slave_name"].as<std::string>();
-            print_message((boost::format("[YAML] -- Joint ec slave name: %s .") % jntCfg[id].ecSlaveName).str(),
+            /// joints[].name
+            jntCfg[id].name = joints[i]["ec_slave_name"].as<std::string>();
+            print_message((boost::format("[YAML] -- Joint ec slave name: %s .") % jntCfg[id].name).str(),
                           MessageLevel::NORMAL);
 
             //Process Data Input Mapping
@@ -399,12 +399,12 @@ public:
 
     std::string getEcInpVarName(int jntId, Inputs enumEcInp)
     {
-        return jntCfg[jntId].ecSlaveName + ".Inputs." + jntCfg[jntId].ecInpMap[enumEcInp];
+        return jntCfg[jntId].name + ".Inputs." + jntCfg[jntId].ecInpMap[enumEcInp];
     }
 
     std::string getEcOutpVarName(int jntId, Outputs enumEcOutp)
     {
-        return jntCfg[jntId].ecSlaveName + ".Outputs." + jntCfg[jntId].ecOutpMap[enumEcOutp];
+        return jntCfg[jntId].name + ".Outputs." + jntCfg[jntId].ecOutpMap[enumEcOutp];
     }
 
     bool createSharedMemory()
@@ -568,7 +568,7 @@ public:
      inline double getJointVelocity(int jntId) { return getJointVelocityEC(jntId) * 2.0 * M_PI / jntCfg[jntId].countPerRound; }
      inline double getJointTorque(int jntId) { return getJointTorqueEC(jntId); }
      inline double getJointLoadTorque(int jntId) { return getJointLoadTorqueEC(jntId); }
-//     inline double getJointLoadTorque(int jntId) { return (double)jntCfg[jntId].jntEcInpPtr->ec_load_torque_value * jntCfg[jntId].torque_range / 1000.0; }
+//     inline double getJointLoadTorque(int jntId) { return (double)slaveCfg[jntId].jntEcInpPtr->ec_load_torque_value * slaveCfg[jntId].torque_range / 1000.0; }
 
 
     inline uint16_t getJointStatus(int jntId) { return jntCfg[jntId].jntEcInpPtr->ec_status_word; }
@@ -579,9 +579,9 @@ public:
     inline void setJointVelocityEC(int jntId, int32_t vel) { jntCfg[jntId].jntEcOutpPtr->ec_target_velocity = vel; }
     inline void setJointTorqueEC(int jntId, int32_t tor) { jntCfg[jntId].jntEcOutpPtr->ec_target_torque = tor; }
 
-    // inline void setJointPositionEC(int jntId, double pos_rad) { jntCfg[jntId].jntEcOutpPtr->ec_target_position = pos_rad * jntCfg[jntId].countPerRound / (2 * M_PI) ; }
-    // inline void setJointVelocityEC(int jntId, double vel_rad) { jntCfg[jntId].jntEcOutpPtr->ec_target_velocity = vel_rad * jntCfg[jntId].countPerRound / (2 * M_PI) ; }
-    // inline void setJointTorqueEC(int jntId, double tor) { jntCfg[jntId].jntEcOutpPtr->ec_target_torque = tor; }
+    // inline void setJointPositionEC(int jntId, double pos_rad) { slaveCfg[jntId].jntEcOutpPtr->ec_target_position = pos_rad * slaveCfg[jntId].countPerRound / (2 * M_PI) ; }
+    // inline void setJointVelocityEC(int jntId, double vel_rad) { slaveCfg[jntId].jntEcOutpPtr->ec_target_velocity = vel_rad * slaveCfg[jntId].countPerRound / (2 * M_PI) ; }
+    // inline void setJointTorqueEC(int jntId, double tor) { slaveCfg[jntId].jntEcOutpPtr->ec_target_torque = tor; }
 
 
     inline void setJointMode(int jntId, int32_t mode) { jntCfg[jntId].jntEcOutpPtr->ec_mode_of_operation = mode; }

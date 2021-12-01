@@ -3,19 +3,17 @@ robot:
   loop_hz: 1000     # [required] control frequency
   slave_number: 1 # [required]
   slaves:
-    - id: 0 # The order of joints [required]
+    - id: 0 # The order of the slave [required]
       name: joint_1
       inputs: # [optional]
-        - 'Status word'
-        - 'Position actual value'
-        - 'Velocity actual value'
-        - 'Torque actual value'
-        - 'Analog Input 1'
+        status_word: 'Status word'
+        position_actual_value: 'Position actual value'
+        velocity_actual_value: 'Velocity actual value'
+        torque_actual_value: 'Torque actual value'
+        load_torque_value: 'Analog Input 1'
       outputs: # [optional]
-        - 'Mode of operation'
-        - 'Control word'
-        - 'Target Position'
-        - 'Target Velocity'
-        - 'Target Torque'
-
-
+        mode_of_operation: 'Mode of operation'
+        control_word: 'Control word'
+        target_position: 'Target Position'
+        target_velocity: 'Target Velocity'
+        target_torque: 'Target Torque'

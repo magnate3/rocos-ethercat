@@ -29,9 +29,11 @@
 #define LICENSE_KEY "FB3B37E5-014B554C-F51CA7DF"
 
 /*-Robot Configuration------------------------------------------------------*/
-#include <robot_config.hpp>
+//#include <robot_config.hpp>
+#include <ecat_config.hpp>
 
-static RobotConfig *pRobotConfig = new RobotConfig(ROBOT_CONFIG_FILE);
+static EcatConfig *pEcatConfig = new EcatConfig();
+//static RobotConfig *pRobotConfig = new RobotConfig(ROBOT_CONFIG_FILE);
 
 /*-SHARED MEMORY ------------------------------------------------------------*/
 //#define EC_SHM_IN  "ec_in"
