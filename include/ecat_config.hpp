@@ -130,12 +130,25 @@ public:
         ecInpMap[TORQUE_ACTUAL_VALUE] = "Torque actual value";
         ecInpMap[LOAD_TORQUE_VALUE] = "Analog Input 1";
 
+        ecInpOffsets[STATUS_WORD] = 0;
+        ecInpOffsets[POSITION_ACTUAL_VALUE] = 0;
+        ecInpOffsets[VELOCITY_ACTUAL_VALUE] = 0;
+        ecInpOffsets[TORQUE_ACTUAL_VALUE] = 0;
+        ecInpOffsets[LOAD_TORQUE_VALUE] = 0;
+
         // EtherCAT Process Data Output default Name Mapping
         ecOutpMap[MODE_OF_OPERATION] = "Mode of operation";
         ecOutpMap[CONTROL_WORD] = "Control word";
         ecOutpMap[TARGET_POSITION] = "Target Position";
         ecOutpMap[TARGET_VELOCITY] = "Target Velocity";
         ecOutpMap[TARGET_TORQUE] = "Target Torque";
+
+        ecOutpOffsets[MODE_OF_OPERATION] = 0;
+        ecOutpOffsets[CONTROL_WORD] = 0;
+        ecOutpOffsets[TARGET_POSITION] = 0;
+        ecOutpOffsets[TARGET_VELOCITY] = 0;
+        ecOutpOffsets[TARGET_TORQUE] = 0;
+
     }
 
     ~SlaveConfig() {
@@ -149,6 +162,9 @@ public:
     std::string name{"Slave_1001 [Elmo Drive ]"};
     std::map<INPUTS, std::string> ecInpMap;
     std::map<OUTPUTS, std::string> ecOutpMap;
+
+    std::map<INPUTS, int> ecInpOffsets;
+    std::map<OUTPUTS, int> ecOutpOffsets;
 
 //    T_JOINT_EC_INPUT *jntEcInpPtr = nullptr;
 //    T_JOINT_EC_OUTPUT *jntEcOutpPtr = nullptr;
@@ -207,66 +223,66 @@ public:
 
         loop_hz = robot["loop_hz"].as<uint32_t>();
 
-        slave_number = robot["number_of_joints"].as<int>();
-        if (slave_number == robot["joints"].size()) {
-            print_message((boost::format("[YAML] Robot has %d joints") % slave_number).str(), MessageLevel::NORMAL);
+        slave_number = robot["slave_number"].as<int>();
+        if (slave_number == robot["slaves"].size()) {
+            print_message((boost::format("[YAML] Robot has %d slaves") % slave_number).str(), MessageLevel::NORMAL);
         } else {
-            print_message("[YAML] Robot has bad number of joints.", MessageLevel::ERROR);
+            print_message("[YAML] Robot has bad number of slaves.", MessageLevel::ERROR);
             return false;
         }
 
-        YAML::Node joints = robot["joints"];
+        YAML::Node slaves = robot["slaves"];
         slaveCfg.resize(slave_number);
         std::set<int> isJntOK;
         for (int i = 0; i < slave_number; i++) {
 
-            /// joints.id
-            int id = joints[i]["id"].as<int>();
-            if (id < slave_number && id >= 0) {
+            /// slaves.id
+            int id = slaves[i]["id"].as<int>();
+            if (id >= 0) {
                 print_message((boost::format("[YAML] -- Joint ID: %d. ") % id).str(), MessageLevel::NORMAL);
             } else {
-                print_message("[YAML] Bad joint ID!! ", MessageLevel::ERROR);
+                print_message("[YAML] Bad slaves ID!! ", MessageLevel::ERROR);
                 return false;
             }
             auto res = isJntOK.insert(id);
             if (!res.second) { //Found duplicate elements
-                print_message("[YAML] Bad joint ID is DUPLICATE!! ", MessageLevel::ERROR);
+                print_message("[YAML] Bad slaves ID is DUPLICATE!! ", MessageLevel::ERROR);
                 return false;
             }
 
 //            //name
-//            slaveCfg[id].jntName = joints[i]["name"].as<std::string>();
+//            slaveCfg[id].jntName = slaves[i]["name"].as<std::string>();
 //            print_message((boost::format("[YAML] -- Joint name: %s. ") % slaveCfg[id].jntName).str(),
 //                          MessageLevel::NORMAL);
 
-            /// joints[].name
-            slaveCfg[id].name = joints[i]["ec_slave_name"].as<std::string>();
-            print_message((boost::format("[YAML] -- Joint ec slave name: %s .") % slaveCfg[id].name).str(),
+            /// slaves[].name
+            slaveCfg[id].name = slaves[i]["name"].as<std::string>();
+            print_message((boost::format("[YAML] -- Slave name: %s .") % slaveCfg[id].name).str(),
                           MessageLevel::NORMAL);
 
             /// Process Data Input Mapping
-            if (joints[i]["inputs"]["status_word"])
-                slaveCfg[id].ecInpMap[STATUS_WORD] = joints[i]["inputs"]["status_word"].as<std::string>();
-            if (joints[i]["inputs"]["position_actual_value"])
-                slaveCfg[id].ecInpMap[POSITION_ACTUAL_VALUE] = joints[i]["inputs"]["position_actual_value"].as<std::string>();
-            if (joints[i]["inputs"]["velocity_actual_value"])
-                slaveCfg[id].ecInpMap[VELOCITY_ACTUAL_VALUE] = joints[i]["inputs"]["velocity_actual_value"].as<std::string>();
-            if (joints[i]["inputs"]["torque_actual_value"])
-                slaveCfg[id].ecInpMap[TORQUE_ACTUAL_VALUE] = joints[i]["inputs"]["torque_actual_value"].as<std::string>();
-            if (joints[i]["inputs"]["load_torque_value"])
-                slaveCfg[id].ecInpMap[LOAD_TORQUE_VALUE] = joints[i]["inputs"]["load_torque_value"].as<std::string>();
+            if (slaves[i]["inputs"]["status_word"])
+                slaveCfg[id].ecInpMap[STATUS_WORD] = slaves[i]["inputs"]["status_word"].as<std::string>();
+            if (slaves[i]["inputs"]["position_actual_value"])
+                slaveCfg[id].ecInpMap[POSITION_ACTUAL_VALUE] = slaves[i]["inputs"]["position_actual_value"].as<std::string>();
+            if (slaves[i]["inputs"]["velocity_actual_value"])
+                slaveCfg[id].ecInpMap[VELOCITY_ACTUAL_VALUE] = slaves[i]["inputs"]["velocity_actual_value"].as<std::string>();
+            if (slaves[i]["inputs"]["torque_actual_value"])
+                slaveCfg[id].ecInpMap[TORQUE_ACTUAL_VALUE] = slaves[i]["inputs"]["torque_actual_value"].as<std::string>();
+            if (slaves[i]["inputs"]["load_torque_value"])
+                slaveCfg[id].ecInpMap[LOAD_TORQUE_VALUE] = slaves[i]["inputs"]["load_torque_value"].as<std::string>();
 
             /// Process Data Out Mapping
-            if (joints[i]["outputs"]["mode_of_operation"])
-                slaveCfg[id].ecOutpMap[MODE_OF_OPERATION] = joints[i]["outputs"]["mode_of_operation"].as<std::string>();
-            if (joints[i]["outputs"]["control_word"])
-                slaveCfg[id].ecOutpMap[CONTROL_WORD] = joints[i]["outputs"]["control_word"].as<std::string>();
-            if (joints[i]["outputs"]["target_position"])
-                slaveCfg[id].ecOutpMap[TARGET_POSITION] = joints[i]["outputs"]["target_position"].as<std::string>();
-            if (joints[i]["outputs"]["target_velocity"])
-                slaveCfg[id].ecOutpMap[TARGET_VELOCITY] = joints[i]["outputs"]["target_velocity"].as<std::string>();
-            if (joints[i]["outputs"]["target_torque"])
-                slaveCfg[id].ecOutpMap[TARGET_TORQUE] = joints[i]["outputs"]["target_torque"].as<std::string>();
+            if (slaves[i]["outputs"]["mode_of_operation"])
+                slaveCfg[id].ecOutpMap[MODE_OF_OPERATION] = slaves[i]["outputs"]["mode_of_operation"].as<std::string>();
+            if (slaves[i]["outputs"]["control_word"])
+                slaveCfg[id].ecOutpMap[CONTROL_WORD] = slaves[i]["outputs"]["control_word"].as<std::string>();
+            if (slaves[i]["outputs"]["target_position"])
+                slaveCfg[id].ecOutpMap[TARGET_POSITION] = slaves[i]["outputs"]["target_position"].as<std::string>();
+            if (slaves[i]["outputs"]["target_velocity"])
+                slaveCfg[id].ecOutpMap[TARGET_VELOCITY] = slaves[i]["outputs"]["target_velocity"].as<std::string>();
+            if (slaves[i]["outputs"]["target_torque"])
+                slaveCfg[id].ecOutpMap[TARGET_TORQUE] = slaves[i]["outputs"]["target_torque"].as<std::string>();
 
         }
 

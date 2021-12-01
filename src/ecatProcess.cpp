@@ -944,6 +944,9 @@ static EC_T_VOID tEcJobTask(EC_T_VOID *pvThreadParamDesc) {
             EC_T_BYTE *abyPdOut = ecatGetProcessImageOutputPtr();
             EC_T_STATE eMasterState = ecatGetMasterState();
 
+            /***********Record Ec-Master State**************/
+            pEcatConfig->ecatInfo->ecatState = static_cast<EcatInfo::EcatState>(eMasterState);
+
             //            if ((eEcatState_SAFEOP == eMasterState) || (eEcatState_OP == eMasterState))
             if (eEcatState_OP == eMasterState) {
                 myAppWorkpd(pEcThreadParam, abyPdIn, abyPdOut);
@@ -1207,128 +1210,194 @@ static EC_T_DWORD myAppReadypd(T_EC_THREAD_PARAM *pEcThreadParam,
                                EC_T_BYTE *pbyPDIn,
                                EC_T_BYTE *pbyPDOut
 ) {
+
     for (int i = 0; i < pEcatConfig->slave_number; ++i) {
+        EC_T_CFG_SLAVE_INFO SlaveInfo;
+
+        if (ecatGetCfgSlaveInfo(EC_FALSE, i, &SlaveInfo) != EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatGetCfgSlaveInfo() Error!!\n"));
+            goto Exit;
+        }
+
+        pEcatConfig->slaveCfg[i].name = SlaveInfo.abyDeviceName;
+        pEcatConfig->ecatInfo->slaves[i].slave_name = SlaveInfo.abyDeviceName;
+
+
         EC_T_PROCESS_VAR_INFO VarInfo;
 
         ////=================Process Data Inputs==================////
         // 1. ec_status_word
-        if (ecatFindInpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_status_word).c_str()),
+        if (ecatFindInpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcInpVarName(i, STATUS_WORD).c_str()),
                                  &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_status_word)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.status_word) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Status Word Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecInpOffsets[STATUS_WORD] = VarInfo.nBitOffs;
+
 
         // 2. ec_position_actual_value
         if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_position_actual_value).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcInpVarName(i, POSITION_ACTUAL_VALUE).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_position_actual_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.position_actual_value) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Position Actual Value Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecInpOffsets[POSITION_ACTUAL_VALUE] = VarInfo.nBitOffs;
 
         //3. ec_velocity_actual_value
         if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_velocity_actual_value).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcInpVarName(i, VELOCITY_ACTUAL_VALUE).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_velocity_actual_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.velocity_actual_value) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Velocity Actual Value Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecInpOffsets[VELOCITY_ACTUAL_VALUE] = VarInfo.nBitOffs;
+
 
         //4. ec_torque_actual_value
         if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_torque_actual_value).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcInpVarName(i, TORQUE_ACTUAL_VALUE).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_torque_actual_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.torque_actual_value) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Torque Actual Value Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecInpOffsets[TORQUE_ACTUAL_VALUE] = VarInfo.nBitOffs;
+
 
         //5. ec_load_torque_value
         if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_load_torque_value).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcInpVarName(i, LOAD_TORQUE_VALUE).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_load_torque_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.load_torque_value) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Load Torque Value Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecInpOffsets[LOAD_TORQUE_VALUE] = VarInfo.nBitOffs;
+
 
         ////=================Process Data Outputs==================////
         // 1. ec_mode_of_operation
         if (ecatFindOutpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_mode_of_operation).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, MODE_OF_OPERATION).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_mode_of_operation)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.mode_of_operation) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Mode of Operation Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecOutpOffsets[MODE_OF_OPERATION] = VarInfo.nBitOffs;
+
 
         // 2. ec_control_word
-        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_control_word).c_str()),
+        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, CONTROL_WORD).c_str()),
                                   &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_control_word)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.control_word) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Control Word Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecOutpOffsets[CONTROL_WORD] = VarInfo.nBitOffs;
+
 
         // 3. ec_target_position
         if (ecatFindOutpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_position).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, TARGET_POSITION).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_target_position)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.target_position) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Target Position Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecOutpOffsets[TARGET_POSITION] = VarInfo.nBitOffs;
+
 
         // 4. ec_target_velocity
         if (ecatFindOutpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_velocity).c_str()),
+                const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, TARGET_VELOCITY).c_str()),
                 &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->jntCfg[i].jntEcOutpPtr->ec_target_velocity)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.target_velocity) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Target Velocity Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecOutpOffsets[TARGET_VELOCITY] = VarInfo.nBitOffs;
+
 
         // 5. ec_target_torque
-        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, ec_target_torque).c_str()),
+        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, TARGET_TORQUE).c_str()),
                                   &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.target_torque)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        if (sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.target_torque) * 8 != VarInfo.nBitSize) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "Target Torque Bit Size Error!!\n"));
+            goto Exit;
+        }
+        pEcatConfig->slaveCfg[i].ecOutpOffsets[TARGET_TORQUE] = VarInfo.nBitOffs;
     }
+
+    return EC_E_NOERROR;
+
+    Exit:
+    return EC_E_ERROR;
 }
 
 
@@ -1368,126 +1437,58 @@ static EC_T_DWORD myAppWorkpd(T_EC_THREAD_PARAM *pEcThreadParam,
     ////============== shared memory =================////
 
     for (int i = 0; i < pEcatConfig->slave_number; ++i) {
-        EC_T_PROCESS_VAR_INFO VarInfo;
 
         ////=================Process Data Inputs==================////
         // 1. ec_status_word
-        if (ecatFindInpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_status_word).c_str()),
-                                 &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_status_word)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].inputs.status_word)),
+                   pEcatConfig->slaveCfg[i].ecInpOffsets[STATUS_WORD],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.status_word) * 8);
 
         // 2. ec_position_actual_value
-        if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_position_actual_value).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_position_actual_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].inputs.position_actual_value)),
+                   pEcatConfig->slaveCfg[i].ecInpOffsets[POSITION_ACTUAL_VALUE],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.position_actual_value) * 8);
 
         //3. ec_velocity_actual_value
-        if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_velocity_actual_value).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_velocity_actual_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].inputs.velocity_actual_value)),
+                   pEcatConfig->slaveCfg[i].ecInpOffsets[VELOCITY_ACTUAL_VALUE],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.velocity_actual_value) * 8);
 
         //4. ec_torque_actual_value
-        if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_torque_actual_value).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_torque_actual_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].inputs.torque_actual_value)),
+                   pEcatConfig->slaveCfg[i].ecInpOffsets[TORQUE_ACTUAL_VALUE],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.torque_actual_value) * 8);
 
         //5. ec_load_torque_value
-        if (ecatFindInpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_load_torque_value).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_load_torque_value)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].inputs.load_torque_value)),
+                   pEcatConfig->slaveCfg[i].ecInpOffsets[LOAD_TORQUE_VALUE],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].inputs.load_torque_value) * 8);
 
         ////=================Process Data Outputs==================////
         // 1. ec_mode_of_operation
-        if (ecatFindOutpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_mode_of_operation).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_mode_of_operation)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.mode_of_operation)),
+                   pEcatConfig->slaveCfg[i].ecOutpOffsets[MODE_OF_OPERATION],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.mode_of_operation) * 8);
 
         // 2. ec_control_word
-        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_control_word).c_str()),
-                                  &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_control_word)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.control_word)),
+                   pEcatConfig->slaveCfg[i].ecOutpOffsets[CONTROL_WORD],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.mode_of_operation) * 8);
 
         // 3. ec_target_position
-        if (ecatFindOutpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_position).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_target_position)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.target_position)),
+                   pEcatConfig->slaveCfg[i].ecOutpOffsets[TARGET_POSITION],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.control_word) * 8);
 
         // 4. ec_target_velocity
-        if (ecatFindOutpVarByName(
-                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_velocity).c_str()),
-                &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
-            goto Exit;
-        }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->jntCfg[i].jntEcOutpPtr->ec_target_velocity)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.target_velocity)),
+                   pEcatConfig->slaveCfg[i].ecOutpOffsets[TARGET_VELOCITY],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.target_position) * 8);
 
         // 5. ec_target_torque
-        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, ec_target_torque).c_str()),
-                                  &VarInfo) !=
-            EC_E_NOERROR) {
-            EcLogMsg(EC_LOG_LEVEL_ERROR,
-                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
-            goto Exit;
-        }
         EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.target_torque)),
-                   VarInfo.nBitOffs, VarInfo.nBitSize);
+                   pEcatConfig->slaveCfg[i].ecOutpOffsets[TARGET_TORQUE],
+                   sizeof(pEcatConfig->ecatInfo->slaves[i].outputs.target_torque) * 8);
     }
 
     int val = 0;
