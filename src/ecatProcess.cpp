@@ -35,14 +35,6 @@
 static EcatConfig *pEcatConfig = new EcatConfig();
 //static RobotConfig *pRobotConfig = new RobotConfig(ROBOT_CONFIG_FILE);
 
-/*-SHARED MEMORY ------------------------------------------------------------*/
-//#define EC_SHM_IN  "ec_in"
-//#define EC_SHM_OUT "ec_out"
-//
-//static void *ec_in_map_addr = EC_NULL;
-//static void *ec_out_map_addr = EC_NULL;
-//static int ec_in_size = sizeof(T_PDLAYOUT_IN_SLAVE_1001);    /* ec_in */
-//static int ec_out_size = sizeof(T_PDLAYOUT_OUT_SLAVE_1001);     /* ec_out */
 
 /*-Logging-------------------------------------------------------------------*/
 #define DCM_ENABLE_LOGFILE
@@ -85,6 +77,8 @@ static EC_T_DWORD myAppInit(T_EC_THREAD_PARAM *pEcThreadParam);
 static EC_T_DWORD myAppPrepare(T_EC_THREAD_PARAM *pEcThreadParam);
 
 static EC_T_DWORD myAppSetup(T_EC_THREAD_PARAM *pEcThreadParam);
+
+static EC_T_DWORD myAppReadypd(T_EC_THREAD_PARAM *pEcThreadParam, EC_T_BYTE *pbyPDIn, EC_T_BYTE *pbyPDOut);
 
 static EC_T_DWORD myAppWorkpd(T_EC_THREAD_PARAM *pEcThreadParam, EC_T_BYTE *pbyPDIn, EC_T_BYTE *pbyPDOut);
 
@@ -953,6 +947,8 @@ static EC_T_VOID tEcJobTask(EC_T_VOID *pvThreadParamDesc) {
             //            if ((eEcatState_SAFEOP == eMasterState) || (eEcatState_OP == eMasterState))
             if (eEcatState_OP == eMasterState) {
                 myAppWorkpd(pEcThreadParam, abyPdIn, abyPdOut);
+            } else if (eEcatState_SAFEOP == eMasterState) {
+                myAppReadypd(pEcThreadParam, abyPdIn, abyPdOut);
             }
         }
         PERF_JOB_END(PERF_myAppWorkpd);
@@ -1087,10 +1083,10 @@ static EC_T_DWORD myAppInit(T_EC_THREAD_PARAM *pEcThreadParam) {
     ////////===========My Own Code============/////////
 
     //    pRobotConfig =
-    if (!pRobotConfig->parserYamlFile())
+    if (!pEcatConfig->parserYamlFile())
         goto Exit;
 
-    if (!pRobotConfig->createSharedMemory())
+    if (!pEcatConfig->createSharedMemory())
         goto Exit;
 
     return EC_E_NOERROR;
@@ -1168,49 +1164,16 @@ static EC_T_DWORD myAppPrepare(T_EC_THREAD_PARAM *pEcThreadParam) {
 //        goto Exit;
 //    }
 
-    if (ecatGetNumConfiguredSlaves() < pRobotConfig->jntNum) {
+    if (ecatGetNumConfiguredSlaves() < pEcatConfig->slave_number) {
         EcLogMsg(EC_LOG_LEVEL_ERROR,
                  (pEcLogContext, EC_LOG_LEVEL_ERROR, "Configured slaves less than the joints. "
                                                      "Please check out the configurations of robot and EcMaster ENI file\n"));
         goto Exit;
-    } else if (ecatGetNumConfiguredSlaves() > pRobotConfig->jntNum) {
+    } else if (ecatGetNumConfiguredSlaves() > pEcatConfig->slave_number) {
         EcLogMsg(EC_LOG_LEVEL_WARNING,
                  (pEcLogContext, EC_LOG_LEVEL_WARNING,
-                         "Configured %d slaves, but only %d slaves\n", ecatGetNumConfiguredSlaves(), pRobotConfig->jntNum));
+                         "Configured %d slaves, but only %d slaves\n", ecatGetNumConfiguredSlaves(), pEcatConfig->slave_number));
     }
-
-    //    int ret = -1;
-    //    int fd = -1;
-    //
-    //    fd = shm_open(EC_SHM_IN, O_RDWR | O_CREAT, 0644); // ec_in shared memory
-    //    if (fd < 0) {
-    //        goto Exit;
-    //    }
-    //
-    //    ret = ftruncate(fd, S_oRegisterResults.dwPDInSize);
-    //    if (ret < 0) {
-    //        goto Exit;
-    //    }
-    //
-    //    ec_in_map_addr = mmap(NULL, S_oRegisterResults.dwPDInSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    //    if (ec_in_map_addr == NULL) {
-    //        goto Exit;
-    //    }
-    //
-    //    fd = shm_open(EC_SHM_OUT, O_RDWR | O_CREAT, 0644); // ec_out shared memory
-    //    if (fd < 0) {
-    //        goto Exit;
-    //    }
-    //
-    //    ret = ftruncate(fd, S_oRegisterResults.dwPDOutSize);
-    //    if (ret < 0) {
-    //        goto Exit;
-    //    }
-    //
-    //    ec_out_map_addr = mmap(NULL, S_oRegisterResults.dwPDOutSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    //    if (ec_out_map_addr == NULL) {
-    //        goto Exit;
-    //    }
 
     return EC_E_NOERROR;
 
@@ -1232,99 +1195,19 @@ static EC_T_DWORD myAppSetup(T_EC_THREAD_PARAM *pEcThreadParam) {
     return EC_E_NOERROR;
 }
 
+
 /***************************************************************************************************/
 /**
-\brief  demo application working process data function.
+\brief  demo application ready working process data function.
 
-  This function is called in every cycle after the the master stack is started.
+  This function is called in SAFEOP.
 
 */
-static EC_T_DWORD myAppWorkpd(T_EC_THREAD_PARAM *pEcThreadParam,
-                              EC_T_BYTE *pbyPDIn, /* [in]  pointer to process data input buffer */
-                              EC_T_BYTE *pbyPDOut /* [in]  pointer to process data output buffer */
+static EC_T_DWORD myAppReadypd(T_EC_THREAD_PARAM *pEcThreadParam,
+                               EC_T_BYTE *pbyPDIn,
+                               EC_T_BYTE *pbyPDOut
 ) {
-    ////============== Origin =================////
-    //    EC_UNREFPARM(pbyPDIn);
-    //    T_EC_FLASH_DATA* pFlashData = &pEcThreadParam->FlashData;
-    //
-    //    /* demo code flashing */
-    //    if (pFlashData->dwFlashPdOutBitSize != 0)
-    //    {
-    //        pFlashData->dwFlashTimer += pEcThreadParam->dwBusCycleTimeUsec;
-    //        if (pFlashData->dwFlashTimer >= pFlashData->dwFlashInterval)
-    //        {
-    //            pFlashData->dwFlashTimer = 0;
-    //
-    //            /* flash with pattern */
-    //            pFlashData->byFlashVal++;
-    //            OsMemset(pFlashData->pbyFlashBuf, pFlashData->byFlashVal, pFlashData->dwFlashBufSize);
-    //
-    //            /* update PdOut */
-    //            EC_COPYBITS(pbyPDOut, pFlashData->dwFlashPdOutBitOffs, pFlashData->pbyFlashBuf, 0, pFlashData->dwFlashPdOutBitSize);
-    //        }
-    //    }
-
-    ////============== Test =================////
-    //    static int i = 0;
-    //    static bool isFirstIn = true;
-
-    //    static T_PDLAYOUT_IN_SLAVE_1001* pSlaveIn = (T_PDLAYOUT_IN_SLAVE_1001*)(pbyPDIn + PDLAYOUT_IN_OFFSET_SLAVE_1001);
-    //    static T_PDLAYOUT_OUT_SLAVE_1001* pSlaveOut = (T_PDLAYOUT_OUT_SLAVE_1001*)(pbyPDOut + PDLAYOUT_OUT_OFFSET_SLAVE_1001);
-
-    //    EC_T_WORD cmd = EC_GET_FRM_WORD(&pSlaveOut->wOutputs_Control_word);
-
-    //    switch (cmd) {
-    //        case 0x06:
-    //            pSlaveOut->sbyOutputs_Mode_of_operation = 8;
-    //            EC_SET_FRM_WORD(&pSlaveOut->wOutputs_Control_word, 0x07);
-    //            return EC_E_NOERROR;
-    //        case 0x07:
-    //            EC_SET_FRM_WORD(&pSlaveOut->wOutputs_Control_word, 0x0F);
-    //            return EC_E_NOERROR;
-    //        case 0x0F:
-    //            EC_SET_FRM_WORD(&pSlaveOut->wOutputs_Control_word, 0x0F);
-    //            break;
-    //        default:
-    //            pSlaveOut->sbyOutputs_Mode_of_operation = 8;
-    //            EC_SET_FRM_WORD(&pSlaveOut->wOutputs_Control_word, 0x06);
-    //            return EC_E_NOERROR;
-    //    }
-
-    //    if(cmd == 0x0F) {
-    //        EC_T_INT pos = EC_GET_FRM_DWORD(&pSlaveIn->sdwInputs_Position_actual_value);
-    //        EC_T_WORD status = EC_GET_FRM_WORD(&pSlaveIn->wInputs_Status_word);
-    //        static int mypos = pSlaveIn->sdwInputs_Position_actual_value;
-    //        static int i = 0;
-    ////        std::cout << "\r" << "===>mode: " << (int)pSlaveIn->sbyInputs_Mode_of_operation_display  << "===>status: " << status << " ===> pos: " << pos << std::flush;
-    ////        EC_SET_FRM_DWORD(&pSlaveOut->sdwOutputs_Target_Velocity, 5000);
-    //        EC_SET_FRM_DWORD(&pSlaveOut->sdwOutputs_Target_Position, mypos + 50000* sin(0.005 * i));
-    ////        mypos += 10;
-    //        i++;
-    ////        EC_SET_FRM_WORD(&pSlaveOut->swOutputs_Target_Torque, (int) 50000 * sin(0.001 * i));
-    //    }
-
-    ////============== shared memory =================////
-
-    //    static T_PDLAYOUT_IN_SLAVE_1001* pSlaveIn = (T_PDLAYOUT_IN_SLAVE_1001*)(pbyPDIn + PDLAYOUT_IN_OFFSET_SLAVE_1001);
-    //    static T_PDLAYOUT_OUT_SLAVE_1001* pSlaveOut = (T_PDLAYOUT_OUT_SLAVE_1001*)(pbyPDOut + PDLAYOUT_OUT_OFFSET_SLAVE_1001);
-
-    //    memcpy(ec_in_map_addr, pbyPDIn, S_oRegisterResults.dwPDInSize);
-    //    memcpy(pbyPDOut, ec_out_map_addr, S_oRegisterResults.dwPDOutSize);
-
-    //    int res = sem_trywait(pRobotConfig->sem_mutex);
-    //    if (res != 0) {
-    //        int val = 0;
-    //        sem_getvalue(pRobotConfig->sem_mutex, &val);
-    //        EcLogMsg(EC_LOG_LEVEL_ERROR,
-    //                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "Can not wait sem, error code: %d, value: %d!!\n", errno, val));
-    //        goto Exit;
-    //    }
-
-    int val = 0;
-
-    // sem_wait(pRobotConfig->sem_mutex);
-
-    for (int i = 0; i < pRobotConfig->jntNum; ++i) {
+    for (int i = 0; i < pEcatConfig->slave_number; ++i) {
         EC_T_PROCESS_VAR_INFO VarInfo;
 
         ////=================Process Data Inputs==================////
@@ -1432,38 +1315,192 @@ static EC_T_DWORD myAppWorkpd(T_EC_THREAD_PARAM *pEcThreadParam,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_target_velocity)),
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->jntCfg[i].jntEcOutpPtr->ec_target_velocity)),
                    VarInfo.nBitOffs, VarInfo.nBitSize);
 
         // 5. ec_target_torque
-        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_torque).c_str()),
+        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, ec_target_torque).c_str()),
                                   &VarInfo) !=
             EC_E_NOERROR) {
             EcLogMsg(EC_LOG_LEVEL_ERROR,
                      (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
             goto Exit;
         }
-        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_target_torque)),
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.target_torque)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+    }
+}
+
+
+
+/***************************************************************************************************/
+/**
+\brief  demo application working process data function.
+
+  This function is called in every cycle after the the master stack is started.
+
+*/
+static EC_T_DWORD myAppWorkpd(T_EC_THREAD_PARAM *pEcThreadParam,
+                              EC_T_BYTE *pbyPDIn, /* [in]  pointer to process data input buffer */
+                              EC_T_BYTE *pbyPDOut /* [in]  pointer to process data output buffer */
+) {
+    ////============== Origin =================////
+    //    EC_UNREFPARM(pbyPDIn);
+    //    T_EC_FLASH_DATA* pFlashData = &pEcThreadParam->FlashData;
+    //
+    //    /* demo code flashing */
+    //    if (pFlashData->dwFlashPdOutBitSize != 0)
+    //    {
+    //        pFlashData->dwFlashTimer += pEcThreadParam->dwBusCycleTimeUsec;
+    //        if (pFlashData->dwFlashTimer >= pFlashData->dwFlashInterval)
+    //        {
+    //            pFlashData->dwFlashTimer = 0;
+    //
+    //            /* flash with pattern */
+    //            pFlashData->byFlashVal++;
+    //            OsMemset(pFlashData->pbyFlashBuf, pFlashData->byFlashVal, pFlashData->dwFlashBufSize);
+    //
+    //            /* update PdOut */
+    //            EC_COPYBITS(pbyPDOut, pFlashData->dwFlashPdOutBitOffs, pFlashData->pbyFlashBuf, 0, pFlashData->dwFlashPdOutBitSize);
+    //        }
+    //    }
+
+    ////============== shared memory =================////
+
+    for (int i = 0; i < pEcatConfig->slave_number; ++i) {
+        EC_T_PROCESS_VAR_INFO VarInfo;
+
+        ////=================Process Data Inputs==================////
+        // 1. ec_status_word
+        if (ecatFindInpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_status_word).c_str()),
+                                 &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_status_word)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        // 2. ec_position_actual_value
+        if (ecatFindInpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_position_actual_value).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_position_actual_value)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        //3. ec_velocity_actual_value
+        if (ecatFindInpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_velocity_actual_value).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_velocity_actual_value)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        //4. ec_torque_actual_value
+        if (ecatFindInpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_torque_actual_value).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_torque_actual_value)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        //5. ec_load_torque_value
+        if (ecatFindInpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcInpVarName(i, ec_load_torque_value).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindInpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_GETBITS(pbyPDIn, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcInpPtr->ec_load_torque_value)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        ////=================Process Data Outputs==================////
+        // 1. ec_mode_of_operation
+        if (ecatFindOutpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_mode_of_operation).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_mode_of_operation)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        // 2. ec_control_word
+        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_control_word).c_str()),
+                                  &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_control_word)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        // 3. ec_target_position
+        if (ecatFindOutpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_position).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pRobotConfig->jntCfg[i].jntEcOutpPtr->ec_target_position)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        // 4. ec_target_velocity
+        if (ecatFindOutpVarByName(
+                const_cast<EC_T_CHAR *>(pRobotConfig->getEcOutpVarName(i, ec_target_velocity).c_str()),
+                &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->jntCfg[i].jntEcOutpPtr->ec_target_velocity)),
+                   VarInfo.nBitOffs, VarInfo.nBitSize);
+
+        // 5. ec_target_torque
+        if (ecatFindOutpVarByName(const_cast<EC_T_CHAR *>(pEcatConfig->getEcOutpVarName(i, ec_target_torque).c_str()),
+                                  &VarInfo) !=
+            EC_E_NOERROR) {
+            EcLogMsg(EC_LOG_LEVEL_ERROR,
+                     (pEcLogContext, EC_LOG_LEVEL_ERROR, "ecatFindOutpVarByName() Error!!\n"));
+            goto Exit;
+        }
+        EC_SETBITS(pbyPDOut, (EC_T_BYTE *) (&(pEcatConfig->ecatInfo->slaves[i].outputs.target_torque)),
                    VarInfo.nBitOffs, VarInfo.nBitSize);
     }
 
-    sem_getvalue(pRobotConfig->sem_mutex, &val);
+    int val = 0;
+    sem_getvalue(pEcatConfig->sem_mutex, &val);
     if (val < 1)
-        sem_post(pRobotConfig->sem_mutex);
-
-    //    if (res != 0) {
-    //        int val = 0;
-    //        sem_getvalue(pRobotConfig->sem_mutex, &val);
-    //        EcLogMsg(EC_LOG_LEVEL_ERROR,
-    //                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "Can not post sem, error code: %d, value: %d!!\n", errno, val));
-    //    }
-    // sem_post(pRobotConfig->sem_sync);
+        sem_post(pEcatConfig->sem_mutex);
 
     return EC_E_NOERROR;
 
     Exit:
-    sem_post(pRobotConfig->sem_mutex);
-    sem_post(pRobotConfig->sem_sync);
+    sem_post(pEcatConfig->sem_mutex);
+    sem_post(pEcatConfig->sem_sync);
+
     return EC_E_ERROR;
 }
 
