@@ -47,7 +47,7 @@ add_custom_command(OUTPUT ${DRIVER_FILE}
         DEPENDS ${PROJECT_NAME}.c ${PROJECT_NAME}.bb ${PROJECT_NAME}.h VERBATIM)
 
 add_custom_target(${PROJECT_NAME} ALL DEPENDS ${DRIVER_FILE}
-        COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_NAME}.ko ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}/${PROJECT_NAME}.ko) #copy atemsys.ko to bin/
+        COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_NAME}.ko ${CMAKE_BINARY_DIR}/bin/${PROJECT_NAME}.ko) #copy atemsys.ko to bin/
 
 # Parse c files
 #add_library(dummy_target hello.c)

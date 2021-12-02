@@ -23,9 +23,11 @@
 #include <boost/timer/timer.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
-
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/chrono.hpp>
+#include <boost/interprocess/containers/vector.hpp>
+#include <boost/interprocess/containers/string.hpp>
 
 #include <string>
 #include <cstring>
@@ -40,19 +42,19 @@
 
 #include <math.h>
 
-#include "ecat_info.hpp"
-
 #define ROBOT_CONFIG_FILE "ecat_config.yaml"
 
 /*-SHARED MEMORY ------------------------------------------------------------*/
 #define EC_SHM "ecm"
-#define EC_SHM_MAX_SIZE 2048
+#define EC_SHM_MAX_SIZE 65536
 
 //#define EC_SEM_SYNC "sync"
 #define EC_SEM_MUTEX "sync"
 
 #define MAX_NAME_LEN 20
 #define MAX_JOINT_NUM 10
+
+#define MAX_SLAVE_NUM 20
 
 
 enum INPUTS //
@@ -91,29 +93,66 @@ enum MessageLevel {
 };
 
 
+typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> CharAlloc;
+typedef boost::interprocess::basic_string<char, std::char_traits<char>, CharAlloc> EcString;
+typedef boost::interprocess::allocator<EcString, boost::interprocess::managed_shared_memory::segment_manager> StringAlloc;
+typedef boost::interprocess::vector<EcString, StringAlloc> EcStringVec;
 
-//class EcatConfig {
-//public:
-//    EcatConfig(const EcatConfig&) = delete;
-//    EcatConfig& operator=(const EcatConfig&) = delete;
-//
-//    static EcatConfig* p_instance;
-//public:
-//    static EcatConfig*  getInstance() {
-//        if(p_instance == nullptr) {
-//
-//        }
-//
-//        return p_instance;
-//    }
-//
-//private:
-//    EcatConfig() {
-//
-//    };
-//};
-//
-//EcatConfig* EcatConfig::p_instance = nullptr;  // static memeber initialize
+struct  EcatSlaveInfo;
+typedef boost::interprocess::allocator<EcatSlaveInfo,boost::interprocess::managed_shared_memory::segment_manager> EcSlaveAlloc;
+typedef boost::interprocess::vector<EcatSlaveInfo,EcSlaveAlloc>  EcSlaveVec;
+
+struct EcatSlaveInfo {
+
+    uint32_t slave_id {0};
+
+    /** Struct store the EtherCAT process data input  **/
+    struct PDInput {
+        uint16_t status_word{0};          //  Size: 2.0 unsigned
+        int32_t position_actual_value{0}; // Size: 4.0 signed
+        int32_t velocity_actual_value{0}; // Size: 4.0 signed
+        int16_t torque_actual_value{0};   // Size: 2.0 signed
+        int16_t load_torque_value{0};     // Size: 2.0 signed
+    };
+
+    PDInput inputs;
+
+    /** Struct store the EtherCAT process data output  **/
+    struct PDOutput {
+        int8_t mode_of_operation{8}; // Size: 1.0 signed
+        uint16_t control_word{0};    // Size: 2.0 unsigned
+        int32_t target_position{0};  // Size: 4.0 signed
+        int32_t target_velocity{0};  // Size: 4.0 signed
+        int16_t target_torque{0};    // Size: 2.0 signed
+    };
+
+    PDOutput outputs;
+};
+
+/////////////////////   STRUCT DEFINITION   /////////////////////////////////
+struct EcatInfo {
+
+    boost::chrono::time_point<boost::chrono::system_clock> timestamp;  // Timestamp
+
+    enum EcatState {
+        UNKNOWN = 0,
+        INIT = 1,
+        PREOP = 2,
+        SAFEOP = 4,
+        OP = 8,
+
+        BOOTSTRAP = 3
+    };
+
+    EcatState ecatState {UNKNOWN};    // State of Ec-Master
+
+
+
+//    EcVec slaves; // all the slaves data
+//    std::vector<EcatSlaveInfo> slaves; // all the slaves data
+//     EcatSlaveInfo slaves[MAX_SLAVE_NUM];
+
+};
 
 
 
@@ -177,6 +216,7 @@ public:
 class EcatConfig {
 public:
     explicit EcatConfig(std::string configFile = ROBOT_CONFIG_FILE) : configFileName(configFile) {
+
     }
 
     ~EcatConfig() {
@@ -201,6 +241,9 @@ public:
     sem_t *sem_sync;
 
     EcatInfo* ecatInfo = nullptr;
+    EcSlaveVec* ecatSlaveVec = nullptr;
+    EcStringVec* ecatSlaveNameVec = nullptr;
+    boost::interprocess::managed_shared_memory* managedSharedMemory;
 
 public:
     bool parserYamlFile(const std::string &configFile) {
@@ -233,6 +276,7 @@ public:
 
         YAML::Node slaves = robot["slaves"];
         slaveCfg.resize(slave_number);
+
         std::set<int> isJntOK;
         for (int i = 0; i < slave_number; i++) {
 
@@ -330,8 +374,20 @@ public:
 
         using namespace boost::interprocess;
         shared_memory_object::remove(EC_SHM);
-        managed_shared_memory managedSharedMemory {open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
-        ecatInfo = managedSharedMemory.find_or_construct<EcatInfo>("ecat")();
+
+        managedSharedMemory = new managed_shared_memory {open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
+
+        ecatInfo = managedSharedMemory->find_or_construct<EcatInfo>("ecat")();
+
+        EcSlaveAlloc alloc_inst(managedSharedMemory->get_segment_manager());
+        ecatSlaveVec = managedSharedMemory->find_or_construct<EcSlaveVec>("slaves")(MAX_SLAVE_NUM, alloc_inst);
+
+        CharAlloc   char_alloc_inst(managedSharedMemory->get_segment_manager());
+        StringAlloc string_alloc_inst(managedSharedMemory->get_segment_manager());
+        ecatSlaveNameVec = managedSharedMemory->find_or_construct<EcStringVec>("slave_names")(MAX_SLAVE_NUM, EcString(char_alloc_inst) ,string_alloc_inst);
+
+//        ecatInfo->slaves.resize(1);
+        print_message("OK!!!!.", MessageLevel::NORMAL);
 
         umask(mask); // 恢复umask的值
 
@@ -350,8 +406,37 @@ public:
         }
 
         using namespace boost::interprocess;
-        managed_shared_memory managedSharedMemory {open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
-        ecatInfo = managedSharedMemory.find_or_construct<EcatInfo>("ecat")();
+        managedSharedMemory = new managed_shared_memory {open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
+        EcSlaveAlloc alloc_inst(managedSharedMemory->get_segment_manager());
+        CharAlloc   char_alloc_inst(managedSharedMemory->get_segment_manager());
+        StringAlloc string_alloc_inst(managedSharedMemory->get_segment_manager());
+
+        std::pair<EcatInfo *, std::size_t> p1 =  managedSharedMemory->find<EcatInfo>("ecat");
+        if(p1.first) {
+            ecatInfo = p1.first;
+        }
+        else {
+            print_message("[SHM] Ec-Master is not running.", MessageLevel::WARNING);
+            ecatInfo = managedSharedMemory->construct<EcatInfo>("ecat")();
+        }
+
+        auto p2 =  managedSharedMemory->find<EcSlaveVec>("slaves");
+        if(p2.first) {
+            ecatSlaveVec = p2.first;
+        }
+        else {
+            print_message("[SHM] Ec-Master is not running.", MessageLevel::WARNING);
+            ecatSlaveVec = managedSharedMemory->construct<EcSlaveVec>("slaves")(alloc_inst);
+        }
+
+        auto p3 =  managedSharedMemory->find<EcStringVec>("slave_names");
+        if(p3.first) {
+            ecatSlaveNameVec = p3.first;
+        }
+        else {
+            print_message("[SHM] Ec-Master is not running.", MessageLevel::WARNING);
+            ecatSlaveNameVec = managedSharedMemory->construct<EcStringVec>("slave_names")(string_alloc_inst);
+        }
 
         umask(mask); // 恢复umask的值
 
@@ -360,28 +445,28 @@ public:
 
     ////////////// Get joints info for Ec Input /////////////////////
 
-    inline int32_t getActualPositionEC(int id) const { return ecatInfo->slaves[id].inputs.position_actual_value; }
+    inline int32_t getActualPositionEC(int id) const { return ecatSlaveVec->at(id).inputs.position_actual_value; }
 
-    inline int32_t getActualVelocityEC(int id) const { return ecatInfo->slaves[id].inputs.velocity_actual_value; }
+    inline int32_t getActualVelocityEC(int id) const { return ecatSlaveVec->at(id).inputs.velocity_actual_value; }
 
-    inline int16_t getActualTorqueEC(int id) const { return ecatInfo->slaves[id].inputs.torque_actual_value; }
+    inline int16_t getActualTorqueEC(int id) const { return ecatSlaveVec->at(id).inputs.torque_actual_value; }
 
-    inline int32_t getLoadTorqueEC(int id) const { return ecatInfo->slaves[id].inputs.load_torque_value; }
+    inline int32_t getLoadTorqueEC(int id) const { return ecatSlaveVec->at(id).inputs.load_torque_value; }
 
-    inline uint16_t getStatusWord(int id) const { return ecatInfo->slaves[id].inputs.status_word; }
+    inline uint16_t getStatusWord(int id) const { return ecatSlaveVec->at(id).inputs.status_word; }
 
     ////////////// Get joints info for Ec Input /////////////////////
 
-    inline void setTargetPositionEC(int id, int32_t pos) { ecatInfo->slaves[id].outputs.target_position = pos; }
+    inline void setTargetPositionEC(int id, int32_t pos) { ecatSlaveVec->at(id).outputs.target_position = pos; }
 
-    inline void setTargetVelocityEC(int id, int32_t vel) { ecatInfo->slaves[id].outputs.target_velocity = vel; }
+    inline void setTargetVelocityEC(int id, int32_t vel) { ecatSlaveVec->at(id).outputs.target_velocity = vel; }
 
-    inline void setTargetTorqueEC(int id, int32_t tor) { ecatInfo->slaves[id].outputs.target_torque = tor; }
+    inline void setTargetTorqueEC(int id, int32_t tor) { ecatSlaveVec->at(id).outputs.target_torque = tor; }
 
-    inline void setJointMode(int id, int32_t mode) { ecatInfo->slaves[id].outputs.mode_of_operation = mode; }
+    inline void setJointMode(int id, int32_t mode) { ecatSlaveVec->at(id).outputs.mode_of_operation = mode; }
 
     inline void
-    setControlWord(int id, int32_t ctrlword) { ecatInfo->slaves[id].outputs.control_word = ctrlword; }
+    setControlWord(int id, int32_t ctrlword) { ecatSlaveVec->at(id).outputs.control_word = ctrlword; }
 
     inline void waitForSignal() { sem_wait(sem_mutex); }
 

@@ -17,4 +17,4 @@ else
 fi
 
 # Start EcMaster
-nice -20 ./@PROJECT_NAME@_node -f $ENI_FILE -i8254x $INSTANCE 1 -v 3 -perf -t 0
+nice -20 ./@PROJECT_NAME@ -f $ENI_FILE -i8254x $INSTANCE 1 -v 3 -perf -t 0

@@ -13,7 +13,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-find_package(Boost REQUIRED COMPONENTS date_time filesystem)
+find_package(Boost REQUIRED COMPONENTS date_time filesystem system chrono)
 find_package(yaml-cpp REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -49,6 +49,8 @@ set(DEP_LIBS
         Boost::boost
         Boost::date_time
         Boost::filesystem
+        Boost::system
+        Boost::chrono
         yaml-cpp
 )
 
