@@ -2,7 +2,7 @@
  * ecatProcess.cpp
  * Copyright                acontis technologies GmbH, Weingarten, Germany
  * Response                 Stefan Zintgraf
- * Description              EC-Master demo application
+ * Description              EC-Master application
  * Modified                 Yang Luo , luoyang@sia.cn
  *---------------------------------------------------------------------------*/
 
@@ -28,13 +28,10 @@
 /*-License Key -------------------------------------------------------------*/
 #define LICENSE_KEY "FB3B37E5-014B554C-F51CA7DF"
 
-/*-Robot Configuration------------------------------------------------------*/
-//#include <robot_config.hpp>
+/*-EtherCAT Configuration------------------------------------------------------*/
 #include <ecat_config.hpp>
 
 static EcatConfig *pEcatConfig = new EcatConfig();
-//static RobotConfig *pRobotConfig = new RobotConfig(ROBOT_CONFIG_FILE);
-
 
 /*-Logging-------------------------------------------------------------------*/
 #define DCM_ENABLE_LOGFILE
