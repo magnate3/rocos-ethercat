@@ -40,35 +40,39 @@ TEST_CASE("Shared memory test") {
 TEST_CASE("Shared memory test 2") {
     EcatConfig ecatConfig;
     ecatConfig.getSharedMemory();
-    for(int i = 0; i < 10; i ++) {
-        std::cout <<"Timestamp: " << ecatConfig.ecatInfo->timestamp << std::endl;
-        std::cout << "  Slave name:  " << ecatConfig.ecatSlaveNameVec->at(0) << std::endl;
-        std::cout << "  Ethercat State: " << ecatConfig.ecatInfo->ecatState << std::endl;
-        std::cout << "  " << ecatConfig.ecatSlaveVec->at(0).inputs.position_actual_value << std::endl;
 
-        ecatConfig.ecatSlaveVec->at(0).outputs.mode_of_operation = 8;
-        ecatConfig.ecatSlaveVec->at(0).outputs.control_word = 128;
-        ecatConfig.ecatSlaveVec->at(0).outputs.target_position = ecatConfig.ecatSlaveVec->at(0).inputs.position_actual_value;
+    std::cout <<"Timestamp: " << ecatConfig.ecatInfo->timestamp << std::endl;
+
+    std::cout << "  Ethercat State: " << ecatConfig.ecatInfo->ecatState << std::endl;
+//        std::cout << "  " << ecatConfig.ecatSlaveVec->at(0).inputs.position_actual_value << std::endl;
+    std::cout << "  Slave number: " << ecatConfig.ecatInfo->slave_number << std::endl;
+
+    for(int i = 0; i < ecatConfig.ecatInfo->slave_number; i++) {
+        std::cout << "  Slave name:  " << ecatConfig.ecatSlaveNameVec->at(i) << std::endl;
+        ecatConfig.ecatSlaveVec->at(i).outputs.mode_of_operation = 8;
+        ecatConfig.ecatSlaveVec->at(i).outputs.control_word = 128;
+        ecatConfig.ecatSlaveVec->at(i).outputs.target_position = ecatConfig.ecatSlaveVec->at(i).inputs.position_actual_value;
+        std::cout << "Pos is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.position_actual_value << std::endl;
+        usleep(10000);
+
+        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 6;
+        usleep(10000);
+        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
+
+
+        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 7;
+        usleep(10000);
+        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
+
+        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 15;
+        usleep(10000);
+        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
+
         usleep(100000);
 
-        ecatConfig.ecatSlaveVec->at(0).outputs.control_word = 6;
-        usleep(100000);
-        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(0).inputs.status_word << std::endl;
-
-
-        ecatConfig.ecatSlaveVec->at(0).outputs.control_word = 7;
-        usleep(100000);
-        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(0).inputs.status_word << std::endl;
-
-        ecatConfig.ecatSlaveVec->at(0).outputs.control_word = 15;
-        usleep(100000);
-        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(0).inputs.status_word << std::endl;
-
-        usleep(1000000);
-
-        ecatConfig.ecatSlaveVec->at(0).outputs.control_word = 0;
-        usleep(100000);
-        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(0).inputs.status_word << std::endl;
+        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 0;
+        usleep(10000);
+        std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
     }
 }
 

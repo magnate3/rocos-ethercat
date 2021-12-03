@@ -162,7 +162,7 @@ struct EcatInfo {
 
     EcatState ecatState {UNKNOWN};    // State of Ec-Master
 
-
+    int slave_number {0};
 
 //    EcVec slaves; // all the slaves data
 //    std::vector<EcatSlaveInfo> slaves; // all the slaves data
@@ -394,13 +394,14 @@ public:
         managedSharedMemory = new managed_shared_memory {open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
 
         ecatInfo = managedSharedMemory->find_or_construct<EcatInfo>("ecat")();
+        ecatInfo->slave_number = slave_number;
 
         EcSlaveAlloc alloc_inst(managedSharedMemory->get_segment_manager());
-        ecatSlaveVec = managedSharedMemory->find_or_construct<EcSlaveVec>("slaves")(MAX_SLAVE_NUM, alloc_inst);
+        ecatSlaveVec = managedSharedMemory->find_or_construct<EcSlaveVec>("slaves")(slave_number, alloc_inst);
 
         CharAlloc   char_alloc_inst(managedSharedMemory->get_segment_manager());
         StringAlloc string_alloc_inst(managedSharedMemory->get_segment_manager());
-        ecatSlaveNameVec = managedSharedMemory->find_or_construct<EcStringVec>("slave_names")(MAX_SLAVE_NUM, EcString(char_alloc_inst) ,string_alloc_inst);
+        ecatSlaveNameVec = managedSharedMemory->find_or_construct<EcStringVec>("slave_names")(slave_number, EcString(char_alloc_inst) ,string_alloc_inst);
 
 //        ecatInfo->slaves.resize(1);
         print_message("OK!!!!.", MessageLevel::NORMAL);
