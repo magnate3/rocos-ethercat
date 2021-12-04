@@ -31,6 +31,9 @@ Shenyang Institute of Automation, Chinese Academy of Sciences.
 #ifndef ECAT_CONFIG_HPP_INCLUDED
 #define ECAT_CONFIG_HPP_INCLUDED
 
+#define ROCOS_APP_ENABLED
+#define ROCOS_ECM_ENABLED
+
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <sstream>
@@ -356,6 +359,7 @@ public:
 
     inline bool parserYamlFile() { return parserYamlFile(configFileName); }
 
+#ifdef ROCOS_ECM_ENABLED
     std::string getEcInpVarName(int jntId, INPUTS enumEcInp) {
         return slaveCfg[jntId].name + ".Inputs." + slaveCfg[jntId].ecInpMap[enumEcInp];
     }
@@ -411,6 +415,9 @@ public:
         return true;
     }
 
+#endif
+
+#ifdef ROCOS_APP_ENABLED
     /// \brief
     /// \return
     bool getSharedMemory() {
@@ -489,13 +496,15 @@ public:
 
 //    inline void unlock() { sem_post(sem_mutex); }
 
+#endif
+
     ///////////// Format robot info /////////////////
     std::string to_string() {
         std::stringstream ss;
         for (int i = 0; i < slave_number; i++) {
             ss << "[Joint " << i << "] "
-               << " stat: " << getStatusWord(i) << "; pos: " << getActualPositionEC(i)
-               << "; vel: " << getActualVelocityEC(i) << "; tor: " << getActualTorqueEC(i) << ";";
+               << " stat: " << ecatSlaveVec->at(i).inputs.status_word << "; pos: " << ecatSlaveVec->at(i).inputs.position_actual_value
+               << "; vel: " << ecatSlaveVec->at(i).inputs.velocity_actual_value << "; tor: " << ecatSlaveVec->at(i).inputs.torque_actual_value << ";";
         }
         return ss.str();
     }
