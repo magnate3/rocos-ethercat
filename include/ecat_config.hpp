@@ -163,9 +163,14 @@ struct EcatInfo {
         BOOTSTRAP = 3
     };
 
+    double minCyclcTime {0.0}; // minimum cycling time   /* usec */
+    double maxCycleTime {0.0}; // maximum cycling time  /* usec */
+    double avgCycleTime {0.0}; // average cycling time  /* usec */
+    double currCycleTime {0.0}; // current cycling time /* usec */
+
     EcatState ecatState {UNKNOWN};    // State of Ec-Master
 
-    int slave_number {0};
+    int32_t slave_number {0};
 
 //    EcVec slaves; // all the slaves data
 //    std::vector<EcatSlaveInfo> slaves; // all the slaves data

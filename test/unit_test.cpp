@@ -37,7 +37,7 @@ TEST_CASE("Shared memory test") {
     }
 }
 
-TEST_CASE("Shared memory test 2") {
+TEST_CASE("4 motor moving") {
     EcatConfig ecatConfig;
     ecatConfig.getSharedMemory();
 
@@ -49,28 +49,32 @@ TEST_CASE("Shared memory test 2") {
 
     for(int i = 0; i < ecatConfig.ecatInfo->slave_number; i++) {
         std::cout << "  Slave name:  " << ecatConfig.ecatSlaveNameVec->at(i) << std::endl;
-        ecatConfig.ecatSlaveVec->at(i).outputs.mode_of_operation = 8;
+        ecatConfig.ecatSlaveVec->at(i).outputs.mode_of_operation = 9;
         ecatConfig.ecatSlaveVec->at(i).outputs.control_word = 128;
         ecatConfig.ecatSlaveVec->at(i).outputs.target_position = ecatConfig.ecatSlaveVec->at(i).inputs.position_actual_value;
         std::cout << "Pos is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.position_actual_value << std::endl;
         usleep(10000);
 
-        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 6;
+        ecatConfig.ecatSlaveVec->at(i).outputs.control_word = 6;
         usleep(10000);
         std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
 
 
-        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 7;
+        ecatConfig.ecatSlaveVec->at(i).outputs.control_word = 7;
         usleep(10000);
         std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
 
-        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 15;
+        ecatConfig.ecatSlaveVec->at(i).outputs.control_word = 15;
+        ecatConfig.ecatSlaveVec->at(i).outputs.target_velocity = 100000;
+        if(i == 3) {
+            ecatConfig.ecatSlaveVec->at(i).outputs.target_velocity = 3000000;
+        }
         usleep(10000);
         std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
 
-        usleep(100000);
+        usleep(5000000);
 
-        ecatConfig.ecatSlaveVec->at(3).outputs.control_word = 0;
+        ecatConfig.ecatSlaveVec->at(i).outputs.control_word = 0;
         usleep(10000);
         std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(i).inputs.status_word << std::endl;
     }
@@ -184,6 +188,26 @@ TEST_CASE("cst") {
     ecatConfig.ecatSlaveVec->at(0).outputs.control_word = 0;
     usleep(1000000);
     std::cout << "Status is:  " << ecatConfig.ecatSlaveVec->at(0).inputs.status_word << std::endl;
+}
+
+TEST_CASE("Cycling Time Print") {
+    EcatConfig ecatConfig;
+    ecatConfig.getSharedMemory();
+
+    for(int i = 0; i < 20; i++) {
+        std::cout <<"Timestamp: " << ecatConfig.ecatInfo->timestamp << std::endl;
+        std::cout << "  Slave name:  " << ecatConfig.ecatSlaveNameVec->at(0) << std::endl;
+        std::cout << "  Ethercat State: " << ecatConfig.ecatInfo->ecatState << std::endl;
+
+        std::cout << "  Current cycling Time: " << ecatConfig.ecatInfo->currCycleTime  << std::endl;
+        std::cout << "  Min cycling Time: " << ecatConfig.ecatInfo->minCyclcTime  << std::endl;
+        std::cout << "  Max cycling Time: " << ecatConfig.ecatInfo->maxCycleTime  << std::endl;
+        std::cout << "  Avg cycling Time: " << ecatConfig.ecatInfo->avgCycleTime << std::endl;
+
+        usleep(1000000);
+    }
+
+
 }
 
 

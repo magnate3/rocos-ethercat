@@ -884,6 +884,13 @@ static EC_T_VOID tEcJobTask(EC_T_VOID *pvThreadParamDesc) {
 #endif
 
         PERF_JOB_END(PERF_CycleTime);
+        ////////===========My Own Code============/////////
+        pEcatConfig->ecatInfo->minCyclcTime = pEcThreadParam->TscMeasDesc.aTscTime[PERF_CycleTime].dwMin / 10.0;
+        pEcatConfig->ecatInfo->maxCycleTime = pEcThreadParam->TscMeasDesc.aTscTime[PERF_CycleTime].dwMax / 10.0;
+        pEcatConfig->ecatInfo->avgCycleTime = pEcThreadParam->TscMeasDesc.aTscTime[PERF_CycleTime].dwAvg / 1600.0;
+        pEcatConfig->ecatInfo->currCycleTime = pEcThreadParam->TscMeasDesc.aTscTime[PERF_CycleTime].dwCurr / 10.0;
+
+        //////////////////////////////////////////////////
         PERF_JOB_START(PERF_CycleTime);
 
         /* process all received frames (read new input values) */
