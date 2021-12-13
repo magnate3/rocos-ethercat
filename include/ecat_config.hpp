@@ -69,6 +69,7 @@ Shenyang Institute of Automation, Chinese Academy of Sciences.
 
 //#define EC_SEM_SYNC "sync"
 #define EC_SEM_MUTEX "sync"
+#define EC_SEM_NUM 10
 
 #define MAX_NAME_LEN 20
 #define MAX_JOINT_NUM 10
@@ -92,38 +93,18 @@ enum OUTPUTS {
     TARGET_TORQUE
 };
 
-//Terminal Color Show
-enum Color {
-    BLACK = 0,
-    RED = 1,
-    GREEN = 2,
-    YELLOW = 3,
-    BLUE = 4,
-    MAGENTA = 5,
-    CYAN = 6,
-    WHITE = 7,
-    DEFAULT = 9
-};
-
-enum MessageLevel {
-    NORMAL = 0,
-    WARNING = 1,
-    ERROR = 2
-};
-
-
 typedef boost::interprocess::allocator<char, boost::interprocess::managed_shared_memory::segment_manager> CharAlloc;
 typedef boost::interprocess::basic_string<char, std::char_traits<char>, CharAlloc> EcString;
 typedef boost::interprocess::allocator<EcString, boost::interprocess::managed_shared_memory::segment_manager> StringAlloc;
 typedef boost::interprocess::vector<EcString, StringAlloc> EcStringVec;
 
-struct  EcatSlaveInfo;
-typedef boost::interprocess::allocator<EcatSlaveInfo,boost::interprocess::managed_shared_memory::segment_manager> EcSlaveAlloc;
-typedef boost::interprocess::vector<EcatSlaveInfo,EcSlaveAlloc>  EcSlaveVec;
+struct EcatSlaveInfo;
+typedef boost::interprocess::allocator<EcatSlaveInfo, boost::interprocess::managed_shared_memory::segment_manager> EcSlaveAlloc;
+typedef boost::interprocess::vector<EcatSlaveInfo, EcSlaveAlloc> EcSlaveVec;
 
 struct EcatSlaveInfo {
 
-    uint32_t slave_id {0};
+    uint32_t slave_id{0};
 
     /** Struct store the EtherCAT process data input  **/
     struct PDInput {
@@ -163,21 +144,20 @@ struct EcatInfo {
         BOOTSTRAP = 3
     };
 
-    double minCyclcTime {0.0}; // minimum cycling time   /* usec */
-    double maxCycleTime {0.0}; // maximum cycling time  /* usec */
-    double avgCycleTime {0.0}; // average cycling time  /* usec */
-    double currCycleTime {0.0}; // current cycling time /* usec */
+    double minCyclcTime{0.0}; // minimum cycling time   /* usec */
+    double maxCycleTime{0.0}; // maximum cycling time  /* usec */
+    double avgCycleTime{0.0}; // average cycling time  /* usec */
+    double currCycleTime{0.0}; // current cycling time /* usec */
 
-    EcatState ecatState {UNKNOWN};    // State of Ec-Master
+    EcatState ecatState{UNKNOWN};    // State of Ec-Master
 
-    int32_t slave_number {0};
+    int32_t slave_number{0};
 
 //    EcVec slaves; // all the slaves data
 //    std::vector<EcatSlaveInfo> slaves; // all the slaves data
 //     EcatSlaveInfo slaves[MAX_SLAVE_NUM];
 
 };
-
 
 
 /** Class SlaveConfig contains all configurations of one joint
@@ -239,37 +219,38 @@ public:
  */
 class EcatConfig {
 public:
-    explicit EcatConfig(std::string configFile = ROBOT_CONFIG_FILE) : configFileName(configFile) {
+#ifdef ROCOS_ECM_ENABLED
+    explicit EcatConfig(std::string configFile = ROBOT_CONFIG_FILE) : configFileName(configFile) { }
+#endif
+
+    virtual ~EcatConfig() {
 
     }
 
-    ~EcatConfig() {
-
-    }
-
-    std::string configFileName{};
+#ifdef ROCOS_ECM_ENABLED
+std::string configFileName{};
 
     std::string name{"default_robot"};
 
     uint32_t loop_hz{1000};
 
-    int slave_number {0};
+    int slave_number{0};
 
     std::vector<SlaveConfig> slaveCfg;
+#endif
 
 
-    int ec_in_fd;
-    int ec_out_fd;
+//    sem_t *sem_mutex;
+    std::vector<sem_t*> sem_mutex {EC_SEM_NUM};
 
-    sem_t *sem_mutex;
-    sem_t *sem_sync;
-
-    EcatInfo* ecatInfo = nullptr;
-    EcSlaveVec* ecatSlaveVec = nullptr;
-    EcStringVec* ecatSlaveNameVec = nullptr;
-    boost::interprocess::managed_shared_memory* managedSharedMemory;
+    EcatInfo *ecatInfo = nullptr;
+    EcSlaveVec *ecatSlaveVec = nullptr;
+    EcStringVec *ecatSlaveNameVec = nullptr;
+    boost::interprocess::managed_shared_memory *managedSharedMemory = nullptr;
 
 public:
+
+#ifdef ROCOS_ECM_ENABLED
     bool parserYamlFile(const std::string &configFile) {
         if (!boost::filesystem::exists(configFile)) {
             print_message("[YAML] Can not find the config file.", MessageLevel::ERROR);
@@ -364,7 +345,7 @@ public:
 
     inline bool parserYamlFile() { return parserYamlFile(configFileName); }
 
-#ifdef ROCOS_ECM_ENABLED
+
     std::string getEcInpVarName(int jntId, INPUTS enumEcInp) {
         return slaveCfg[jntId].name + ".Inputs." + slaveCfg[jntId].ecInpMap[enumEcInp];
     }
@@ -376,27 +357,33 @@ public:
     bool createSharedMemory() {
         mode_t mask = umask(0); // 取消屏蔽的权限位
 
-        sem_mutex = sem_open(EC_SEM_MUTEX, O_CREAT | O_RDWR, 0777, 1);
-        if (sem_mutex == SEM_FAILED) {
-            print_message("[SHM] Can not open or create semaphore mutex.", MessageLevel::ERROR);
-            return false;
+        //////////////////// Semaphore //////////////////////////
+        sem_mutex.resize(EC_SEM_NUM);
+        for(int i = 0; i < EC_SEM_NUM; i++) {
+            sem_mutex[i] = sem_open((EC_SEM_MUTEX + std::to_string(i)).c_str(),O_CREAT | O_RDWR, 0777, 1);
+            if (sem_mutex[i] == SEM_FAILED) {
+                print_message("[SHM] Can not open or create semaphore mutex " + std::to_string(i) + ".", MessageLevel::ERROR);
+                return false;
+            }
+
+            int val = 0;
+            sem_getvalue(sem_mutex[i], &val);
+            std::cout << "value of sem_mutex is: " << val << std::endl;
+            if (val != 1) {
+                sem_destroy(sem_mutex[i]);
+                sem_unlink((EC_SEM_MUTEX + std::to_string(i)).c_str());
+                sem_mutex[i] = sem_open((EC_SEM_MUTEX + std::to_string(i)).c_str(), O_CREAT | O_RDWR, 0777, 1);
+            }
+
+            sem_getvalue(sem_mutex[i], &val);
+            if (val != 1) {
+                print_message("[SHM] Can not set semaphore mutex " + std::to_string(i) + " to value 1.", MessageLevel::ERROR);
+                return false;
+            }
+
         }
 
-        int val = 0;
-        sem_getvalue(sem_mutex, &val);
-        std::cout << "value of sem_mutex is: " << val << std::endl;
-        if (val != 1) {
-            sem_destroy(sem_mutex);
-            sem_unlink(EC_SEM_MUTEX);
-            sem_mutex = sem_open(EC_SEM_MUTEX, O_CREAT | O_RDWR, 0777, 1);
-        }
-
-        sem_getvalue(sem_mutex, &val);
-        if (val != 1) {
-            print_message("[SHM] Can not set semaphore mutex to 1.", MessageLevel::ERROR);
-            return false;
-        }
-
+        //////////////////// Shared Memory Object //////////////////////////
         using namespace boost::interprocess;
         shared_memory_object::remove(EC_SHM);
 
@@ -419,50 +406,52 @@ public:
 
         return true;
     }
-
 #endif
 
 #ifdef ROCOS_APP_ENABLED
+
     /// \brief
     /// \return
     bool getSharedMemory() {
+
         mode_t mask = umask(0); // 取消屏蔽的权限位
 
-        sem_mutex = sem_open(EC_SEM_MUTEX, O_CREAT, 0777, 1);
-        if (sem_mutex == SEM_FAILED) {
-            print_message("[SHM] Can not open or create semaphore mutex.", MessageLevel::ERROR);
-            return false;
+        sem_mutex.resize(EC_SEM_NUM);
+        for(int i = 0; i < EC_SEM_NUM; i++) {
+            sem_mutex[i] = sem_open((EC_SEM_MUTEX + std::to_string(i)).c_str(), O_CREAT, 0777, 1);
+            if (sem_mutex[i] == SEM_FAILED) {
+                print_message("[SHM] Can not open or create semaphore mutex " + std::to_string(i) + ".", MessageLevel::ERROR);
+                return false;
+            }
         }
+
 
         using namespace boost::interprocess;
-        managedSharedMemory = new managed_shared_memory {open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
+        managedSharedMemory = new managed_shared_memory{open_or_create, EC_SHM, EC_SHM_MAX_SIZE};
         EcSlaveAlloc alloc_inst(managedSharedMemory->get_segment_manager());
-        CharAlloc   char_alloc_inst(managedSharedMemory->get_segment_manager());
+        CharAlloc char_alloc_inst(managedSharedMemory->get_segment_manager());
         StringAlloc string_alloc_inst(managedSharedMemory->get_segment_manager());
 
-        std::pair<EcatInfo *, std::size_t> p1 =  managedSharedMemory->find<EcatInfo>("ecat");
-        if(p1.first) {
+        std::pair<EcatInfo *, std::size_t> p1 = managedSharedMemory->find<EcatInfo>("ecat");
+        if (p1.first) {
             ecatInfo = p1.first;
-        }
-        else {
+        } else {
             print_message("[SHM] Ec-Master is not running.", MessageLevel::WARNING);
             ecatInfo = managedSharedMemory->construct<EcatInfo>("ecat")();
         }
 
-        auto p2 =  managedSharedMemory->find<EcSlaveVec>("slaves");
-        if(p2.first) {
+        auto p2 = managedSharedMemory->find<EcSlaveVec>("slaves");
+        if (p2.first) {
             ecatSlaveVec = p2.first;
-        }
-        else {
+        } else {
             print_message("[SHM] Ec-Master is not running.", MessageLevel::WARNING);
             ecatSlaveVec = managedSharedMemory->construct<EcSlaveVec>("slaves")(alloc_inst);
         }
 
-        auto p3 =  managedSharedMemory->find<EcStringVec>("slave_names");
-        if(p3.first) {
+        auto p3 = managedSharedMemory->find<EcStringVec>("slave_names");
+        if (p3.first) {
             ecatSlaveNameVec = p3.first;
-        }
-        else {
+        } else {
             print_message("[SHM] Ec-Master is not running.", MessageLevel::WARNING);
             ecatSlaveNameVec = managedSharedMemory->construct<EcStringVec>("slave_names")(string_alloc_inst);
         }
@@ -480,9 +469,9 @@ public:
 
     inline int16_t getActualTorqueEC(int id) const { return ecatSlaveVec->at(id).inputs.torque_actual_value; }
 
-    inline int32_t getLoadTorqueEC(int id) const { return ecatSlaveVec->at(id).inputs.load_torque_value; }
+    inline int16_t getLoadTorqueEC(int id) const { return ecatSlaveVec->at(id).inputs.load_torque_value; }
 
-    inline uint16_t getStatusWord(int id) const { return ecatSlaveVec->at(id).inputs.status_word; }
+    inline uint16_t getStatusWordEC(int id) const { return ecatSlaveVec->at(id).inputs.status_word; }
 
     ////////////// Get joints info for Ec Input /////////////////////
 
@@ -490,14 +479,14 @@ public:
 
     inline void setTargetVelocityEC(int id, int32_t vel) { ecatSlaveVec->at(id).outputs.target_velocity = vel; }
 
-    inline void setTargetTorqueEC(int id, int32_t tor) { ecatSlaveVec->at(id).outputs.target_torque = tor; }
+    inline void setTargetTorqueEC(int id, int16_t tor) { ecatSlaveVec->at(id).outputs.target_torque = tor; }
 
-    inline void setJointMode(int id, int32_t mode) { ecatSlaveVec->at(id).outputs.mode_of_operation = mode; }
+    inline void setModeOfOperationEC(int id, int8_t mode) { ecatSlaveVec->at(id).outputs.mode_of_operation = mode; }
 
     inline void
-    setControlWord(int id, int32_t ctrlword) { ecatSlaveVec->at(id).outputs.control_word = ctrlword; }
+    setControlwordEC(int id, uint16_t ctrlword) { ecatSlaveVec->at(id).outputs.control_word = ctrlword; }
 
-    inline void waitForSignal() { sem_wait(sem_mutex); }
+    inline void waitForSignal(int id = 0) { sem_wait(sem_mutex[id]); }
 
 //    inline void unlock() { sem_post(sem_mutex); }
 
@@ -506,16 +495,38 @@ public:
     ///////////// Format robot info /////////////////
     std::string to_string() {
         std::stringstream ss;
-        for (int i = 0; i < slave_number; i++) {
+        for (int i = 0; i < ecatSlaveVec->size(); i++) {
             ss << "[Joint " << i << "] "
-               << " stat: " << ecatSlaveVec->at(i).inputs.status_word << "; pos: " << ecatSlaveVec->at(i).inputs.position_actual_value
-               << "; vel: " << ecatSlaveVec->at(i).inputs.velocity_actual_value << "; tor: " << ecatSlaveVec->at(i).inputs.torque_actual_value << ";";
+               << " stat: " << ecatSlaveVec->at(i).inputs.status_word << "; pos: "
+               << ecatSlaveVec->at(i).inputs.position_actual_value
+               << "; vel: " << ecatSlaveVec->at(i).inputs.velocity_actual_value << "; tor: "
+               << ecatSlaveVec->at(i).inputs.torque_actual_value << ";";
         }
         return ss.str();
     }
 
-private:
+protected:
     //////////// OUTPUT FORMAT SETTINGS ////////////////////
+    //Terminal Color Show
+    enum Color {
+        BLACK = 0,
+        RED = 1,
+        GREEN = 2,
+        YELLOW = 3,
+        BLUE = 4,
+        MAGENTA = 5,
+        CYAN = 6,
+        WHITE = 7,
+        DEFAULT = 9
+    };
+
+    enum MessageLevel {
+        NORMAL = 0,
+        WARNING = 1,
+        ERROR = 2
+    };
+
+
     boost::format _f{"\033[1;3%1%m "};       //设置前景色
     boost::format _b{"\033[1;4%1%m "};       //设置背景色
     boost::format _fb{"\033[1;3%1%;4%2%m "}; //前景背景都设置

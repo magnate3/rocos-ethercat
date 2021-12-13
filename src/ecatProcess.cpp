@@ -1704,16 +1704,22 @@ static EC_T_DWORD myAppWorkpd(T_EC_THREAD_PARAM *pEcThreadParam,
                    sizeof(pEcatConfig->ecatSlaveVec->at(i).outputs.target_torque) * 8);
     }
 
-    int val = 0;
-    sem_getvalue(pEcatConfig->sem_mutex, &val);
-    if (val < 1)
-        sem_post(pEcatConfig->sem_mutex);
+    for(auto& sem : pEcatConfig->sem_mutex) {
+        int val = 0;
+        sem_getvalue(sem, &val);
+        if (val < 1)
+            sem_post(sem);
+    }
+
 
     return EC_E_NOERROR;
 
     Exit:
-    sem_post(pEcatConfig->sem_mutex);
-    sem_post(pEcatConfig->sem_sync);
+
+    for(auto& sem : pEcatConfig->sem_mutex) {
+        sem_post(sem);
+    }
+
 
     return EC_E_ERROR;
 }
