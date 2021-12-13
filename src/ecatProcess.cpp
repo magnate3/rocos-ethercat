@@ -1174,16 +1174,17 @@ static EC_T_DWORD myAppPrepare(T_EC_THREAD_PARAM *pEcThreadParam) {
 //        goto Exit;
 //    }
 
-    if (ecatGetNumConfiguredSlaves() < pEcatConfig->slave_number) {
+    if (ecatGetNumConfiguredSlaves() != pEcatConfig->slave_number) {
         EcLogMsg(EC_LOG_LEVEL_ERROR,
-                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "Configured slaves less than the joints. "
-                                                     "Please check out the configurations of robot and EcMaster ENI file\n"));
+                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "Slave number in ENI is not equal to the slave number in configurations file(eg. ecat_config.yaml) . "
+                                                     "Please check out the configurations file(eg. ecat_config.yaml) and EcMaster ENI file\n"));
         goto Exit;
-    } else if (ecatGetNumConfiguredSlaves() > pEcatConfig->slave_number) {
-        EcLogMsg(EC_LOG_LEVEL_WARNING,
-                 (pEcLogContext, EC_LOG_LEVEL_WARNING,
-                         "Configured %d slaves, but only %d slaves\n", ecatGetNumConfiguredSlaves(), pEcatConfig->slave_number));
     }
+//    else if (ecatGetNumConfiguredSlaves() > pEcatConfig->slave_number) {
+//        EcLogMsg(EC_LOG_LEVEL_WARNING,
+//                 (pEcLogContext, EC_LOG_LEVEL_WARNING,
+//                         "Configured %d slaves, but only %d slaves\n", ecatGetNumConfiguredSlaves(), pEcatConfig->slave_number));
+//    }
 
 
     return EC_E_NOERROR;
@@ -1219,7 +1220,7 @@ static EC_T_DWORD myAppSetup(T_EC_THREAD_PARAM *pEcThreadParam) {
 
         pEcatConfig->slaveCfg[i].name = SlaveInfo.abyDeviceName;
         EcLogMsg(EC_LOG_LEVEL_INFO,
-                 (pEcLogContext, EC_LOG_LEVEL_INFO, (pEcatConfig->slaveCfg[i].name + "\n").c_str()));
+                 (pEcLogContext, EC_LOG_LEVEL_INFO, "Slave %d is: %s\n", i, pEcatConfig->slaveCfg[i].name.c_str())); //("Slave " + i + " is: " + pEcatConfig->slaveCfg[i].name + "\n").c_str()
         pEcatConfig->ecatSlaveVec->at(i).slave_id = i;
         pEcatConfig->ecatSlaveNameVec->at(i) = SlaveInfo.abyDeviceName;
 
