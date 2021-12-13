@@ -6,7 +6,7 @@
 -->
 
 <div align="center">
-  <img src="./res/rocos-ecm.png" alt="" height="150">
+  <img src="./rocos-ecm.png" alt="" height="100">
   <h1>ROCOS-EtherCAT-Master</h1>
   <blockquote>The EtherCAT Master for ROCOS based on Acontis Ec-Master </blockquote>
 </div>
@@ -26,5 +26,6 @@ ROCOS-Ecm is the implementation of EtherCAT Master for ROCOS based on Acontis Ec
 
 ## Contributor
 
-:bust_in_silhouette:[**Yang Luo**](mailto:luoyang@sia.cn)
+:bust_in_silhouette: **Yang Luo (luoyang@sia.cn)**
 
+:framed_picture: Icon Designed by :**Yuhan Ying (1027649507@qq.com)**
