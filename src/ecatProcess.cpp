@@ -26,7 +26,7 @@
 #include <string.h>
 
 /*-License Key -------------------------------------------------------------*/
-#define LICENSE_KEY "FB3B37E5-014B554C-F51CA7DF"
+//#define LICENSE_KEY "FB3B37E5-014B554C-F51CA7DF"
 
 /*-EtherCAT Configuration------------------------------------------------------*/
 #include <ecat_config.hpp>
@@ -326,13 +326,15 @@ EC_T_DWORD ecatProcess(
                          oSrcMacAddress.b[0], oSrcMacAddress.b[1], oSrcMacAddress.b[2], oSrcMacAddress.b[3], oSrcMacAddress.b[4], oSrcMacAddress.b[5]));
     }
     /* Add License Key */
-    dwRes = ecatSetLicenseKey(LICENSE_KEY);
+//    dwRes = ecatSetLicenseKey(LICENSE_KEY);
+    //////////// MY OWN CODE /////////////////
+    dwRes = ecatSetLicenseKey(const_cast<EC_T_CHAR*>(pEcatConfig->license.c_str()));
     if (dwRes != EC_E_NOERROR) {
         EcLogMsg(EC_LOG_LEVEL_ERROR,
-                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "The license key: %s is not correct.\n", LICENSE_KEY));
+                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "The license key: %s is not correct.\n", pEcatConfig->license.c_str()));
     } else {
         EcLogMsg(EC_LOG_LEVEL_INFO,
-                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "The license key: %s is correct.\n", LICENSE_KEY));
+                 (pEcLogContext, EC_LOG_LEVEL_ERROR, "The license key: %s is correct.\n", pEcatConfig->license.c_str()));
     }
 
     /* Create cyclic task to trigger master jobs */

@@ -1,5 +1,6 @@
 robot:
   name: 'sia_robot' # [required] less than ROBOT_NAME_MAXLEN(20 bytes)
+  license: 'FB3B37E5-014B554C-F51CA7DF'
   loop_hz: 1000     # [required] control frequency
   slave_number: 4 # [required]
   slaves:

@@ -232,6 +232,8 @@ std::string configFileName{};
 
     std::string name{"default_robot"};
 
+    std::string license {"12345678-12345678-12345678F"};
+
     uint32_t loop_hz{1000};
 
     int slave_number{0};
@@ -268,6 +270,9 @@ public:
 
         name = robot["name"].as<std::string>();
         print_message("[YAML] Robot name is: " + name, MessageLevel::NORMAL);
+
+        if(robot["license"])
+            license = robot["license"].as<std::string>();
 
         loop_hz = robot["loop_hz"].as<uint32_t>();
 
